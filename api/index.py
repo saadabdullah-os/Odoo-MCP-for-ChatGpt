@@ -112,14 +112,30 @@ try:
 
 
 
-    @app.api_route("/{path_name:path}", methods=["GET", "POST"])
-    def catch_all(request: Request, path_name: str = ""):
+    @app.middleware("http")
+    async def vercel_path_rewrite(request: Request, call_next):
+        """Normalizes request path captured by Vercel rewrite into __path__ query param."""
+        real_path = request.query_params.get("__path__")
+        if real_path is not None:
+            if not real_path.startswith("/"):
+                real_path = "/" + real_path
+            request.scope["path"] = real_path
+        return await call_next(request)
+
+
+    # ==========================================
+    # HEALTH & INFO ENDPOINTS
+    # ==========================================
+
+    @app.get("/", tags=["System"], summary="Root", operation_id="root")
+    def root():
+        """Service status and readiness check."""
         return {
-            "scope_path": request.scope.get("path"),
-            "path_name": path_name,
-            "raw_path": request.scope.get("raw_path", b"").decode("latin1", errors="ignore"),
-            "headers": dict(request.headers),
-            "query_string": request.scope.get("query_string", b"").decode("latin1", errors="ignore")
+            "status": "online",
+            "service": "Flow ERP - Odoo Supply Chain Read-Only API",
+            "version": "1.0.0",
+            "odoo_connected": odoo._connected,
+            "rma_model": odoo.rma_model
         }
 
 
