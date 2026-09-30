@@ -112,14 +112,19 @@ try:
 
     @app.middleware("http")
     async def strip_vercel_prefix(request, call_next):
-        """Normalizes path by stripping Vercel rewrite prefixes like /api/index.py or /api."""
-        path = request.scope.get("path", "")
-        if path.startswith("/api/index.py"):
-            request.scope["path"] = path[len("/api/index.py"):] or "/"
-        elif path.startswith("/api"):
-            request.scope["path"] = path[len("/api"):] or "/"
-        response = await call_next(request)
-        return response
+        """Normalizes path using Vercel's x-matched-path header or cleans rewrite prefixes."""
+        matched_path = request.headers.get("x-matched-path")
+        if matched_path:
+            if "?" in matched_path:
+                matched_path = matched_path.split("?")[0]
+            request.scope["path"] = matched_path
+        else:
+            path = request.scope.get("path", "")
+            if path.startswith("/api/index.py"):
+                request.scope["path"] = path[len("/api/index.py"):] or "/"
+            elif path.startswith("/api"):
+                request.scope["path"] = path[len("/api"):] or "/"
+        return await call_next(request)
 
 
     # ==========================================
@@ -127,8 +132,6 @@ try:
     # ==========================================
 
     @app.get("/", tags=["System"], summary="Root", operation_id="root")
-    @app.get("/api", tags=["System"], include_in_schema=False)
-    @app.get("/api/index.py", tags=["System"], include_in_schema=False)
     def root():
         """Service status and readiness check."""
         return {
