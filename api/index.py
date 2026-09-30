@@ -112,26 +112,14 @@ try:
 
 
 
-    @app.get("/debug", tags=["System"], include_in_schema=False)
-    def debug(request: Request):
+    @app.api_route("/{path_name:path}", methods=["GET", "POST"])
+    def catch_all(request: Request, path_name: str = ""):
         return {
             "scope_path": request.scope.get("path"),
+            "path_name": path_name,
+            "raw_path": request.scope.get("raw_path", b"").decode("latin1", errors="ignore"),
             "headers": dict(request.headers),
-            "query_string": request.scope.get("query_string", b"").decode("utf-8")
-        }
-
-
-    @app.get("/", tags=["System"], summary="Root", operation_id="root")
-    def root(request: Request):
-        """Service status and readiness check."""
-        return {
-            "status": "online",
-            "service": "Flow ERP - Odoo Supply Chain Read-Only API",
-            "version": "1.0.0",
-            "odoo_connected": odoo._connected,
-            "rma_model": odoo.rma_model,
-            "request_path": request.scope.get("path"),
-            "request_headers": dict(request.headers)
+            "query_string": request.scope.get("query_string", b"").decode("latin1", errors="ignore")
         }
 
 
