@@ -32,7 +32,7 @@
           "System"
         ],
         "summary": "Health Check",
-        "description": "Health check for Render, Heroku, or external monitoring.",
+        "description": "Health check for external monitoring.",
         "operationId": "health_check",
         "responses": {
           "200": {
