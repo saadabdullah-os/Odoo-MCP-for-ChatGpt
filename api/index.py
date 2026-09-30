@@ -145,6 +145,32 @@ try:
         return {"status": "healthy"}
 
 
+    @app.get("/.well-known/ai-plugin.json", tags=["System"], include_in_schema=False)
+    def plugin_manifest():
+        """OpenAI ChatGPT Plugin manifest specification."""
+        host = os.environ.get("VERCEL_URL", "odoo-mcp-for-chat-gpt.vercel.app")
+        if not host.startswith("http"):
+            host = f"https://{host}"
+        return {
+            "schema_version": "v1",
+            "name_for_human": "OneScreen Odoo ERP",
+            "name_for_model": "onescreen_odoo",
+            "description_for_human": "Query Colombia Purchase Orders, overdue activities, and RMAs from Odoo ERP.",
+            "description_for_model": "Plugin for querying open purchase orders, overdue activities, and RMAs from OneScreen's Colombia Odoo ERP instance.",
+            "auth": {
+                "type": "user_http",
+                "authorization_type": "bearer"
+            },
+            "api": {
+                "type": "openapi",
+                "url": f"{host}/openapi.json"
+            },
+            "logo_url": f"{host}/health",
+            "contact_email": "saad@onescreensolutions.com",
+            "legal_info_url": f"{host}/"
+        }
+
+
     # ==========================================
     # EXPOSED TOOLS & ENDPOINTS
     # ==========================================
