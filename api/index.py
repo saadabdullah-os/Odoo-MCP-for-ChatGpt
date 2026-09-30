@@ -6,7 +6,7 @@ try:
     import xmlrpc.client
     from datetime import datetime
     from typing import Optional, List, Dict, Any
-    from fastapi import FastAPI, Depends, HTTPException, Security, status
+    from fastapi import FastAPI, Depends, HTTPException, Security, status, Request
     from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
     from dotenv import load_dotenv
 
@@ -127,9 +127,14 @@ try:
         return await call_next(request)
 
 
-    # ==========================================
-    # HEALTH & INFO ENDPOINTS
-    # ==========================================
+    @app.get("/debug", tags=["System"], include_in_schema=False)
+    def debug(request: Request):
+        return {
+            "scope_path": request.scope.get("path"),
+            "headers": dict(request.headers),
+            "query_string": request.scope.get("query_string", b"").decode("utf-8")
+        }
+
 
     @app.get("/", tags=["System"], summary="Root", operation_id="root")
     def root():
