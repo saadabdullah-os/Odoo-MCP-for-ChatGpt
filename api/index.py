@@ -110,21 +110,6 @@ try:
         return credentials.credentials
 
 
-    @app.middleware("http")
-    async def strip_vercel_prefix(request, call_next):
-        """Normalizes path using Vercel's x-matched-path header or cleans rewrite prefixes."""
-        matched_path = request.headers.get("x-matched-path")
-        if matched_path:
-            if "?" in matched_path:
-                matched_path = matched_path.split("?")[0]
-            request.scope["path"] = matched_path
-        else:
-            path = request.scope.get("path", "")
-            if path.startswith("/api/index.py"):
-                request.scope["path"] = path[len("/api/index.py"):] or "/"
-            elif path.startswith("/api"):
-                request.scope["path"] = path[len("/api"):] or "/"
-        return await call_next(request)
 
 
     @app.get("/debug", tags=["System"], include_in_schema=False)
@@ -137,14 +122,16 @@ try:
 
 
     @app.get("/", tags=["System"], summary="Root", operation_id="root")
-    def root():
+    def root(request: Request):
         """Service status and readiness check."""
         return {
             "status": "online",
             "service": "Flow ERP - Odoo Supply Chain Read-Only API",
             "version": "1.0.0",
             "odoo_connected": odoo._connected,
-            "rma_model": odoo.rma_model
+            "rma_model": odoo.rma_model,
+            "request_path": request.scope.get("path"),
+            "request_headers": dict(request.headers)
         }
 
 
