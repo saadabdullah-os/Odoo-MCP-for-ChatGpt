@@ -138,11 +138,17 @@ try:
     @app.get("/", tags=["System"], summary="Root", operation_id="root")
     def root():
         """Service status and readiness check."""
+        connected = False
+        try:
+            odoo.ensure_connected()
+            connected = True
+        except Exception as e:
+            logger.warning("Root connection test: %s", e)
         return {
             "status": "online",
             "service": "Flow ERP - Odoo Supply Chain Read-Only API",
             "version": "1.0.0",
-            "odoo_connected": odoo._connected,
+            "odoo_connected": connected,
             "rma_model": odoo.rma_model
         }
 
