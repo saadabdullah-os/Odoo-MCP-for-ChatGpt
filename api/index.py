@@ -89,10 +89,18 @@ try:
 
     odoo = OdooConnection()
 
+    servers = [
+        {
+            "url": "https://odoo-mcp-for-chat-gpt.vercel.app",
+            "description": "Production Vercel deployment"
+        }
+    ]
+
     app = FastAPI(
         title="Flow ERP - Odoo Supply Chain Read-Only API",
         description="Secure, read-only bridge connecting ChatGPT to OneScreen's Colombia Odoo ERP.",
-        version="1.0.0"
+        version="1.0.0",
+        servers=servers
     )
 
     security = HTTPBearer(

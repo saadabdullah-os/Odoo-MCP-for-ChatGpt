@@ -5,6 +5,12 @@
     "description": "Secure, read-only bridge connecting ChatGPT to OneScreen's Colombia Odoo ERP.",
     "version": "1.0.0"
   },
+  "servers": [
+    {
+      "url": "https://odoo-mcp-for-chat-gpt.vercel.app",
+      "description": "Production Vercel deployment"
+    }
+  ],
   "paths": {
     "/": {
       "get": {
