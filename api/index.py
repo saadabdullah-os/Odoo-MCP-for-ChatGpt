@@ -110,11 +110,25 @@ try:
         return credentials.credentials
 
 
+    @app.middleware("http")
+    async def strip_vercel_prefix(request, call_next):
+        """Normalizes path by stripping Vercel rewrite prefixes like /api/index.py or /api."""
+        path = request.scope.get("path", "")
+        if path.startswith("/api/index.py"):
+            request.scope["path"] = path[len("/api/index.py"):] or "/"
+        elif path.startswith("/api"):
+            request.scope["path"] = path[len("/api"):] or "/"
+        response = await call_next(request)
+        return response
+
+
     # ==========================================
     # HEALTH & INFO ENDPOINTS
     # ==========================================
 
     @app.get("/", tags=["System"], summary="Root", operation_id="root")
+    @app.get("/api", tags=["System"], include_in_schema=False)
+    @app.get("/api/index.py", tags=["System"], include_in_schema=False)
     def root():
         """Service status and readiness check."""
         return {
