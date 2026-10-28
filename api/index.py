@@ -4,6 +4,10 @@ import logging
 
 try:
     import xmlrpc.client
+    import json
+    import urllib.request
+    import urllib.parse
+    import urllib.error
     from datetime import datetime
     from typing import Optional, List, Dict, Any
     from fastapi import FastAPI, Depends, HTTPException, Security, status, Request
@@ -88,6 +92,32 @@ try:
 
 
     odoo = OdooConnection()
+
+
+    def integrations_get(function_name: str, params: Dict[str, Any]) -> Any:
+        """Calls the odoo_n8n_integration REST module: GET /api/v1/integrations/<function_name>."""
+        token = os.environ.get("ODOO_INTEGRATIONS_TOKEN")
+        if not token:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ODOO_INTEGRATIONS_TOKEN is not configured on the server. Please set it in Environment Variables."
+            )
+        odoo_url = os.environ.get("ODOO_URL") or ODOO_URL
+        query = urllib.parse.urlencode({k: v for k, v in params.items() if v})
+        url = f"{odoo_url}/api/v1/integrations/{function_name}" + (f"?{query}" if query else "")
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+        try:
+            with urllib.request.urlopen(req, timeout=25) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", "replace")[:500]
+            logger.error("Odoo integrations '%s' returned %s: %s", function_name, e.code, body)
+            raise HTTPException(status_code=404 if e.code == 404 else status.HTTP_502_BAD_GATEWAY,
+                                detail=f"Odoo integrations '{function_name}' error {e.code}: {body}")
+        except Exception as e:
+            logger.error("Odoo integrations '%s' failed: %s", function_name, e)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY,
+                                detail=f"Could not reach Odoo integrations '{function_name}': {str(e)}")
 
     servers = [
         {
@@ -292,6 +322,72 @@ try:
         if not result:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"RMA '{rma_name}' not found")
         return result[0]
+
+
+    # ==========================================
+    # ODOO INTEGRATIONS MODULE (/api/v1/integrations)
+    # ==========================================
+
+    @app.get(
+        "/tickets/{ticket_ref}",
+        dependencies=[Depends(verify_token)],
+        tags=["Tickets"],
+        summary="Get ticket by reference",
+        operation_id="get_ticket"
+    )
+    def get_ticket(ticket_ref: str):
+        """Fetches a support ticket by its reference number without '#' (e.g., 0001). Returns subject, customer, description, stage, priority and creation date."""
+        return integrations_get("ticket_get", {"ticket_ref": ticket_ref.lstrip("#")})
+
+
+    @app.get(
+        "/partners/by-phone",
+        dependencies=[Depends(verify_token)],
+        tags=["Partners"],
+        summary="Find partner by phone",
+        operation_id="get_partner_by_phone"
+    )
+    def get_partner_by_phone(phone: str):
+        """Finds a customer/supplier by phone or mobile. Only digits are compared and country prefixes are tolerated (e.g., +57 3001234567 matches 3001234567)."""
+        return integrations_get("partner_by_phone", {"phone": phone})
+
+
+    @app.get(
+        "/partners/search",
+        dependencies=[Depends(verify_token)],
+        tags=["Partners"],
+        summary="Search partners",
+        operation_id="search_partners"
+    )
+    def search_partners(name: Optional[str] = None, nit: Optional[str] = None, phone: Optional[str] = None):
+        """Searches customers/suppliers by name, NIT/VAT (exact, e.g., 900123456-7) or phone (exact as stored in Odoo). Provide at least one parameter."""
+        if not (name or nit or phone):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Provide at least one of: name, nit, phone")
+        return integrations_get("partner_search", {"name": name, "nit": nit, "phone": phone})
+
+
+    @app.get(
+        "/invoices/by-date",
+        dependencies=[Depends(verify_token)],
+        tags=["Invoices"],
+        summary="Get invoices by date",
+        operation_id="get_invoices_by_date"
+    )
+    def get_invoices_by_date(date: str):
+        """Fetches all customer and vendor invoices for a date (YYYY-MM-DD), including lines, product codes, quantities, prices, serial numbers and sale orders."""
+        return integrations_get("invoices_by_date", {"date": date})
+
+
+    @app.get(
+        "/invoices/{invoice_name}",
+        dependencies=[Depends(verify_token)],
+        tags=["Invoices"],
+        summary="Get invoice by name",
+        operation_id="get_invoice"
+    )
+    def get_invoice(invoice_name: str):
+        """Fetches an invoice by its exact name (e.g., FVEO-7439), including lines, product codes, quantities, prices, serial numbers and sale order."""
+        return integrations_get("invoices", {"name": invoice_name.strip()})
 
 except Exception as _e:
     import traceback
